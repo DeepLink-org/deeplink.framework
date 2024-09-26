@@ -73,7 +73,7 @@ class ConvolutionTransofrmer(torch.fx.Transformer):
                                                          proxy.node.meta["val"].stride())
             dtype, device = proxy.node.meta["val"].dtype, proxy.node.meta["val"].device
             with proxy.node.meta["val"].fake_mode:
-                    fake_value = torch.empty(contiguous_shape, dtype=dtype, device=device)
+                fake_value = torch.empty(contiguous_shape, dtype=dtype, device=device)
             proxy.node.meta["val"] = fake_value
 
     def get_proxy(self, target, args: Tuple[Argument, ...], kwargs: Dict[str, Any] = {}):
@@ -104,7 +104,7 @@ class ChannelsLastTransformer(ConvolutionTransofrmer, torch.fx.Transformer):
     def __init__(self, graph_module):
         super().__init__(graph_module)
         self.nodes = list(graph_module.graph.nodes)
-        self.call_function_nodes = [node for node in graph_module.graph.nodes \
+        self.call_function_nodes = [node for node in graph_module.graph.nodes
                                     if node.op == "call_function"]
         self.call_function_index = -1
         self.clast_nodes = []
@@ -123,7 +123,7 @@ class ChannelsLastTransformer(ConvolutionTransofrmer, torch.fx.Transformer):
 
     def from_conv2dclast(self, target, args):
         return isinstance(args[0], Proxy) and "convolution" in args[0].node.name
-    
+
     def is_conv_input(self, curr_index: int, node: torch.fx.Node, target: Target, args: Tuple[Argument, ...]):
         if self.is_transpose_to_clast(target, args):
             return curr_index < len(self.call_function_nodes) and \
@@ -213,10 +213,10 @@ class ChannelsLastTransformer(ConvolutionTransofrmer, torch.fx.Transformer):
         if x.node in self.clast_nodes and (isinstance(y, (int, float)) or y.node in self.clast_nodes):
             return self.get_proxy_store_node(tops_op.Add, (x, y))
         elif x.node in self.clast_nodes or (isinstance(y, Proxy) and y.node in self.clast_nodes):
-            if not x.node in self.clast_nodes:
+            if x.node not in self.clast_nodes:
                 x = self.get_proxy(tops_op.Transpose, (x, (0, 2, 3, 1)))
                 self.clast_nodes.append(x.node)
-            if not y.node in self.clast_nodes:
+            if y.node not in self.clast_nodes:
                 y = self.get_proxy(tops_op.Transpose, (y, (0, 2, 3, 1)))
                 self.clast_nodes.append(y.node)
             return self.get_proxy_store_node(tops_op.Add, (x, y))
@@ -228,10 +228,10 @@ class ChannelsLastTransformer(ConvolutionTransofrmer, torch.fx.Transformer):
         if x.node in self.clast_nodes and (isinstance(y, (int, float)) or y.node in self.clast_nodes):
             return self.get_proxy_store_node(tops_op.Sub, (x, y))
         elif x.node in self.clast_nodes or (isinstance(y, Proxy) and y.node in self.clast_nodes):
-            if not x.node in self. clast_nodes:
+            if x.node not in self. clast_nodes:
                 x = self.get_proxy(tops_op.Transpose, (x, (0, 2, 3, 1)))
                 self.clast_nodes.append(x.node)
-            if not y.node in self.clast_nodes:
+            if y.node not in self.clast_nodes:
                 y = self.get_proxy(tops_op.Transpose, (y, (0, 2, 3, 1)))
                 self.clast_nodes.append(y.node)
             return self.get_proxy_store_node(tops_op.Sub, (x, y))
@@ -243,10 +243,10 @@ class ChannelsLastTransformer(ConvolutionTransofrmer, torch.fx.Transformer):
         if x.node in self.clast_nodes and (isinstance(y, (int, float)) or y.node in self.clast_nodes):
             return self.get_proxy_store_node(tops_op.Mul, (x, y))
         elif x.node in self.clast_nodes or (isinstance(y, Proxy) and y.node in self.clast_nodes):
-            if not x.node in self. clast_nodes:
+            if x.node not in self. clast_nodes:
                 x = self.get_proxy(tops_op.Transpose, (x, (0, 2, 3, 1)))
                 self.clast_nodes.append(x.node)
-            if not y.node in self.clast_nodes:
+            if y.node not in self.clast_nodes:
                 y = self.get_proxy(tops_op.Transpose, (y, (0, 2, 3, 1)))
                 self.clast_nodes.append(y.node)
             return self.get_proxy_store_node(tops_op.Mul, (x, y))
@@ -258,10 +258,10 @@ class ChannelsLastTransformer(ConvolutionTransofrmer, torch.fx.Transformer):
         if x.node in self.clast_nodes and (isinstance(y, (int, float)) or y.node in self.clast_nodes):
             return self.get_proxy_store_node(tops_op.Div, (x, y))
         elif x.node in self.clast_nodes or (isinstance(y, Proxy) and y.node in self.clast_nodes):
-            if not x.node in self. clast_nodes:
+            if x.node not in self. clast_nodes:
                 x = self.get_proxy(tops_op.Transpose, (x, (0, 2, 3, 1)))
                 self.clast_nodes.append(x.node)
-            if not y.node in self.clast_nodes:
+            if y.node not in self.clast_nodes:
                 y = self.get_proxy(tops_op.Transpose, (y, (0, 2, 3, 1)))
                 self.clast_nodes.append(y.node)
             return self.get_proxy_store_node(tops_op.Div, (x, y))
@@ -271,7 +271,7 @@ class ChannelsLastTransformer(ConvolutionTransofrmer, torch.fx.Transformer):
     @register_conversion(tops.Abs)
     def Abs(self, x):
         if x.node in self.clast_nodes:
-            return self.get_proxy_stre_node(tops_op.Abs, (x,))
+            return self.get_proxy_store_node(tops_op.Abs, (x,))
         return self.get_proxy(tops_op.Abs, (x,))
 
     @register_conversion(tops.Square)
@@ -298,7 +298,7 @@ class ChannelsLastTransformer(ConvolutionTransofrmer, torch.fx.Transformer):
                 args[0].node in self.clast_nodes:
             return self.get_proxy_store_node(tops.Expand, args, kwargs)
         return self.get_proxy(tops.Expand, args, kwargs)
- 
+
     @register_conversion(tops.Softmax)
     def Softmax(self, *args, **kwargs):
         if args[0].node in self.clast_nodes:
@@ -331,7 +331,7 @@ class ChannelsLastTransformer(ConvolutionTransofrmer, torch.fx.Transformer):
         if x.node in self.clast_nodes:
             dim = self.dim_mapping[dim]
             return self.get_proxy_store_node(tops_op.Slice, (start_indices, limit_indices, strides,
-                                              x, dim, start, end, step), kwargs)
+                                                             x, dim, start, end, step), kwargs)
         return self.get_proxy(tops_op.Slice, (start_indices, limit_indices, strides,
                                               x, dim, start, end, step), kwargs)
 
