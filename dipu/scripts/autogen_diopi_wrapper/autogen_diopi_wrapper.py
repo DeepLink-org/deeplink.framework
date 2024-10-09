@@ -4,7 +4,7 @@ import yaml
 import re
 import json
 import os
-from typing import Mapping, Match, Optional, Sequence
+from typing import Mapping, Match, Optional, Sequence, Tuple, List
 from diopi_wrapper_template import (
     diopi_wrapper_file_template_content,
     diopi_wrapper_function_template_content,
@@ -79,7 +79,7 @@ class CodeTemplate:
 
 def parse_function_signature(
     schema: str,
-) -> tuple[str, list[tuple[str, str, str]], list[tuple[str, str]]]:
+) -> Tuple[str, List[Tuple[str, str, str]], List[Tuple[str, str]]]:
     # Note: switch to parser if rules grow complex.
 
     def unwarp_brackets(input: str) -> str:
@@ -88,7 +88,7 @@ def parse_function_signature(
             input = input.removeprefix("(").removesuffix(")").strip()
         return input
 
-    def parse_type_name_value_tuple(input: str) -> list[tuple[str, str, str]]:
+    def parse_type_name_value_tuple(input: str) -> List[Tuple[str, str, str]]:
         output = []
         for pair in input.split(","):
             # for 'type name = value'
@@ -112,8 +112,8 @@ def parse_function_signature(
 
 
 def generate_cpp_function_return_values(
-    parameters: list[tuple[str, str, str]], return_values: list[tuple[str, str]]
-) -> list[str]:
+    parameters: List[Tuple[str, str, str]], return_values: List[Tuple[str, str]]
+) -> List[str]:
     REFERENCE_PATTERN = re.compile(r"\w+(\([a-z]+!\))")
 
     output = []
@@ -136,7 +136,7 @@ def generate_cpp_function_return_values(
 
 
 def generate_code_to_process_symint_array(
-    name_list: list[str], vector_suffix: str = "Vector", size_suffix: str = "DiopiSize"
+    name_list: List[str], vector_suffix: str = "Vector", size_suffix: str = "DiopiSize"
 ) -> str:
     HEAD = r"""
 auto to_int = [](const c10::SymInt& t) -> int64_t { return t.expect_int(); };"""
@@ -152,7 +152,7 @@ auto {0}{2} = ::diopiSize_t{{{0}{1}.data(), static_cast<int64_t>({0}{1}.size())}
     )
 
 
-def generate_parameters_from_schema(schema: str) -> list[str]:
+def generate_parameters_from_schema(schema: str) -> List[str]:
     MAPPING = [
         (re.compile(p), r)
         for p, r in [  # Order matters
@@ -240,8 +240,8 @@ def generate_cpp_function_name(
 
 
 def generate_cpp_function_return_values(
-    parameters: list[tuple[str, str, str]], return_values: list[tuple[str, str]]
-) -> list[str]:
+    parameters: List[Tuple[str, str, str]], return_values: List[Tuple[str, str]]
+) -> List[str]:
     REFERENCE_PATTERN = re.compile(r"\w+(\([a-z]+!\))")
 
     output = []
@@ -265,7 +265,7 @@ def generate_cpp_function_return_values(
 
 
 def generate_cpp_variable_for_return_values(
-    return_values: list[tuple[str, str]], *, suffix: str = "_rv"
+    return_values: List[Tuple[str, str]], *, suffix: str = "_rv"
 ) -> str:
     output = [name + suffix for _, name in return_values]
     if len(output) == 0:
@@ -277,7 +277,7 @@ def generate_cpp_variable_for_return_values(
 
 def generate_function_call_with_cpu_tensors(
     function_name: str,
-    parameters: list[tuple[str, str, str]],
+    parameters: List[Tuple[str, str, str]],
     return_values_count: int,
     use_custom_fallback: bool,
     *,
@@ -317,8 +317,8 @@ def generate_function_call_with_cpu_tensors(
 
 
 def generate_code_to_clone_to_host_tensors(
-    function_name: str, parameters: list[tuple[str, str, str]]
-) -> tuple[str, list[tuple[int, str]], list[tuple[int, str]]]:
+    function_name: str, parameters: List[Tuple[str, str, str]]
+) -> Tuple[str, List[Tuple[int, str]], List[Tuple[int, str]]]:
     TENSOR_ARRAY_PATTERN = re.compile(r"Tensor\??\[\]")
     MUTABLE_TENSOR_PATTERN = re.compile(r"Tensor\([a-z]!\)")
     MUTABLE_TENSOR_ARRAY_PATTERN = re.compile(r"Tensor\([a-z]!\)\[\]")
@@ -360,10 +360,10 @@ def generate_code_to_clone_to_host_tensors(
 
 
 def generate_code_to_copy_tensor_from_cpu_to_device(
-    parameters: list[tuple[str, str, str]],
-    return_values: list[tuple[str, str]],
-    mutable_tensor: list[tuple[int, str]],
-    mutable_tensor_array: list[tuple[int, str]],
+    parameters: List[Tuple[str, str, str]],
+    return_values: List[Tuple[str, str]],
+    mutable_tensor: List[Tuple[int, str]],
+    mutable_tensor_array: List[Tuple[int, str]],
 ) -> str:
     TENSOR_PATTERN = re.compile(r"Tensor(\([a-z]!\))?")
     TENSOR_ARRAY_PATTERN = re.compile(r"Tensor\[\]")
@@ -582,7 +582,7 @@ def get_function_int_array_args_from_schema(schema):
     return int_arrays
 
 
-def get_function_return_param_from_schema(schema: str) -> list[str]:
+def get_function_return_param_from_schema(schema: str) -> List[str]:
     _, parameters, return_values = parse_function_signature(schema)
     return generate_cpp_function_return_values(parameters, return_values)
 
