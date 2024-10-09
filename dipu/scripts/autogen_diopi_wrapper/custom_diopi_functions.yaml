@@ -3,7 +3,7 @@
   #
   # Automatically disable when 'enable_autocompare' is false or 'register_operator' is false.
   # In most cases it generates fallback code automatically, but custom or special operator may stop it.
-  enable_fallback_cpu: false
+  enable_fallback_to_cpu: false
   # Generate autocompare code, 'true' by default.
   enable_autocompare: false
   register_operator: false  # Whether generate registe code for this op, default value is True

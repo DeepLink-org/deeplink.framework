@@ -403,7 +403,7 @@ for (auto i = std::size_t{{}}; i < {0}.size(); ++i) {{
 
 def generate_code_fallback_to_cpu(config: dict) -> str:
     maybe_fallback = (
-        config.get("enable_fallback_cpu", True)
+        config.get("enable_fallback_to_cpu", True)
         and config.get("enable_autocompare", True)
         and config.get("register_operator", True)
     )

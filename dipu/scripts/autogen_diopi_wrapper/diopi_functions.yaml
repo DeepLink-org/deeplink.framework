@@ -7,7 +7,7 @@
   # When return value is ::diopiForceFallbackToCPU, it trys to fallback to CPU.
   #
   # Automatically disable when 'enable_autocompare' is false or 'register_operator' is false.
-  enable_fallback_cpu: false
+  enable_fallback_to_cpu: false
   # op gen only on these torch version. use it only if op has different signature on different torch.
   # if it's only different on implementation , please use compile macro DIPU_TORCHXXX.
   # torch version number, 5 in total: {X-major}{XX-minor}{XX-patch}
@@ -1279,7 +1279,7 @@
   interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr, generator)"
 
 - schema: "nonzero(Tensor self) -> Tensor"
-  enable_fallback_cpu: false
+  enable_fallback_to_cpu: false
   custom_code_at_the_beginning: |
     at::Tensor out;
     diopiTensorHandle_t out_ptr = nullptr;
@@ -1364,7 +1364,7 @@
   interface: diopiSub(ctx, out, other, self, alpha)
 
 - schema: "unique_dim(Tensor self, int dim, bool sorted=True, bool return_inverse=False, bool return_counts=False) -> (Tensor out, Tensor indices, Tensor counts)"
-  enable_fallback_cpu: false
+  enable_fallback_to_cpu: false
   custom_code_at_the_beginning: |
     at::Tensor out;
     at::Tensor counts;
@@ -1387,7 +1387,7 @@
     }
 
 - schema: "_unique2(Tensor self, bool sorted=True, bool return_inverse=False, bool return_counts=False) -> (Tensor out, Tensor indices, Tensor counts)"
-  enable_fallback_cpu: false
+  enable_fallback_to_cpu: false
   custom_code_at_the_beginning: |
     at::Tensor out;
     at::Tensor counts;
@@ -1509,7 +1509,7 @@
   interface: diopiArgmax(ctx, out, self, ptr, keepdim)
 
 - schema: "masked_select(Tensor self, Tensor mask) -> Tensor"
-  enable_fallback_cpu: false
+  enable_fallback_to_cpu: false
   custom_code_at_the_beginning: |
     at::Tensor out;
     diopiTensorHandle_t out_ptr = nullptr;
@@ -2337,7 +2337,7 @@
   interface: diopiArange(ctx, out, start, end, step)
 
 - schema: "index.Tensor_out(Tensor self, Tensor?[] indices, *, Tensor(a!) out) -> Tensor(a!)"
-  enable_fallback_cpu: false
+  enable_fallback_to_cpu: false
   custom_fallback: True
   custom_code_at_the_beginning: |
     std::vector<at::Tensor> indices_tensor_vec(indices.size());
