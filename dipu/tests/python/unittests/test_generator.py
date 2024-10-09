@@ -2,7 +2,11 @@
 import torch
 import torch_dipu
 from torch_dipu import diputype
-from torch_dipu.testing._internal.common_utils import TestCase, run_tests
+from torch_dipu.testing._internal.common_utils import (
+    TestCase,
+    run_tests,
+    onlyOn,
+)
 
 
 class TestGenerator(TestCase):
@@ -20,13 +24,13 @@ class TestGenerator(TestCase):
             torch.cuda.manual_seed(i)
 
         state = torch.cuda.get_rng_state(0)
-        new_state = torch.ones_like(state)
+        new_state = torch.ones_like(state) * 4
         torch.cuda.set_rng_state(new_state, 0)
         current_state = torch.cuda.get_rng_state(0)
         self.assertTrue(
             torch.allclose(
                 current_state,
-                torch.tensor(1, device=current_state.device, dtype=current_state.dtype),
+                torch.tensor(4, device=current_state.device, dtype=current_state.dtype),
             )
         )
 
@@ -193,6 +197,23 @@ class TestGenerator(TestCase):
         self.assertGreater(len(torch.cuda.default_generators), 0)
         torch.cuda.default_generators[0].manual_seed(1)
         self.assertEqual(torch.cuda.default_generators[0].initial_seed(), 1)
+
+    @onlyOn("CUDA")
+    def test_cuda_generator(self):
+        state = torch.cuda.get_rng_state(0)
+        state[-16] = 4
+        state[-15:-8] = 0
+        state[-8:] = 0
+        torch.cuda.set_rng_state(state)
+        self.assertEqual(torch.cuda.initial_seed(), 4)
+
+        # invalid offset, offset must be a multiple of 4
+        state[-8:] = 1
+        try:
+            torch.cuda.set_rng_state(state)
+            self.assertTrue(False, "should not go here")
+        except Exception as ex:
+            self.assertIn("offset must be a multiple of 4", ex.args[0])
 
 
 if __name__ == "__main__":

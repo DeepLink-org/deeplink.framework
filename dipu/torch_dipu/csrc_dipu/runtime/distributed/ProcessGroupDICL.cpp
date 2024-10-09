@@ -325,7 +325,8 @@ void check_device_single_tensor(
 }
 
 // Check that all `tensors'
-void checkDeviceTensors(const std::vector<at::Tensor>& tensors) {
+void checkDeviceTensors(const std::vector<at::Tensor>& tensors,
+                        bool check_sizes_and_strides) {
   if (tensors.empty()) {
     TORCH_CHECK(false, "Tensor list must be nonempty");
   }
@@ -348,11 +349,13 @@ void checkDeviceTensors(const std::vector<at::Tensor>& tensors) {
     if (tensor.scalar_type() != first.scalar_type()) {
       TORCH_CHECK(false, "Tensors must have identical type");
     }
-    if (tensor.sizes() != first.sizes()) {
-      TORCH_CHECK(false, "Tensors must have identical size");
-    }
-    if (tensor.strides() != first.strides()) {
-      TORCH_CHECK(false, "Tensors must have identical strides");
+    if (check_sizes_and_strides) {
+      if (tensor.sizes() != first.sizes()) {
+        TORCH_CHECK(false, "Tensors must have identical size");
+      }
+      if (tensor.strides() != first.strides()) {
+        TORCH_CHECK(false, "Tensors must have identical strides");
+      }
     }
     const auto inserted = usedDevices.insert(tensor.get_device()).second;
     if (!inserted) {
@@ -536,7 +539,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::pointToPoint(
 c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
     std::vector<at::Tensor>& tensors, const AllreduceOptions& opts) {
   // inplace in = out, every rank use both in&out.
-  checkDeviceTensors(tensors);
+  checkDeviceTensors(tensors, true);
   std::vector<at::Tensor> tensors_cp{tensors};
   return collective(
       tensors_cp, tensors_cp,
@@ -565,7 +568,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::broadcast(
     std::vector<at::Tensor>& tensors, const BroadcastOptions& opts) {
-  checkDeviceTensors(tensors);
+  checkDeviceTensors(tensors, true);
   // inplace in = out, only rootRank use in.
   return collective(
       tensors, tensors,
@@ -587,7 +590,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::broadcast(
 c10::intrusive_ptr<Work> ProcessGroupDICL::reduce(
     std::vector<at::Tensor>& tensors, const ReduceOptions& opts) {
   // inplace in = out, only rootRank use out.
-  checkDeviceTensors(tensors);
+  checkDeviceTensors(tensors, true);
 
   auto tensor = tensors.back();
   int dev_in_group = 0;
@@ -628,7 +631,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::gather(
   int curRank = getRank();
   int rootRank = static_cast<int>(opts.rootRank);
   c10d::assertRootRank(raise_invalid_arg_func, rootRank, numRanks);
-  checkDeviceTensors(inputs);
+  checkDeviceTensors(inputs, true);
   c10d::assertSingleElementInput(raise_invalid_arg_func, inputs);
   auto input = inputs.back();
   std::vector<at::Tensor> outputTensors;
@@ -684,38 +687,90 @@ std::string_view ProcessGroupDICL::getCommName(
 c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
     std::vector<std::vector<at::Tensor>>& outputs,
     std::vector<at::Tensor>& inputs, const AllgatherOptions& opts) {
-  checkDeviceTensors(inputs);
-  // output = input * ranks, no inplace. every ranks use both in&out.
-  auto outputFlattened =
-      flatten_for_scatter_gather(outputs, inputs, this->size_);
+  auto inputTensor = inputs.back();
+  auto outputs_ = outputs.back();
+  const at::Tensor& first_tensor = outputs_.front();
+  bool same_size = std::all_of(outputs_.begin(), outputs_.end(),
+                               [&first_tensor](const at::Tensor& t) {
+                                 return first_tensor.is_same_size(t);
+                               });
+  checkDeviceTensors(inputs, same_size);
+  if (same_size) {
+    // output = input * ranks, no inplace. every ranks use both in&out.
+    auto outputFlattened =
+        flatten_for_scatter_gather(outputs, inputs, this->size_);
 
-  auto work = collective(
-      inputs, outputFlattened,
-      [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
+    auto work = collective(
+        inputs, outputFlattened,
+        [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
+            DIPUStream& stream) {
+          RECORD_FUNCTION("DiclAllgather", std::vector<c10::IValue>({input}));
+          profile::RecordBlockCreator _("DiclAllgather", stream.rawstream(),
+                                        static_cast<int>(stream.id()));
+
+          return devproxy::diclAllGather(input.data_ptr(), output.data_ptr(),
+                                         static_cast<size_t>(input.numel()),
+                                         input.scalar_type(), comm,
+                                         stream.rawstream());
+        },
+        [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {},
+        [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {
+          // Copy the flattened output tensors to the outputs.
+          for (size_t i = 0; i < outputs.size(); ++i) {
+            // warnning & todo:: copy in comm stream,
+            // record dest tensor outputs, because src tensor outputFlattened
+            // already recorded in collective.
+            copyInCommStream<true>(diclComms[i], outputs[i], outputFlattened[i],
+                                   static_cast<int>(outputs[i].size()));
+            // copyInCurrentStream(diclComms[i], outputs[i],
+            // outputFlattened[i]);
+          }
+        },
+        OpType::ALLGATHER);
+    return work;
+  }
+  const auto num_broadcasts = outputs_.size();
+  for (const auto i : c10::irange(num_broadcasts)) {
+    auto& outCheck = outputs_[i];
+    auto& inCheck = (i == this->rank_) ? inputTensor : outCheck;
+    if (outCheck.numel() != inCheck.numel()) {
+      throw std::runtime_error(
+          "Tensor input and output of broadcast must have the "
+          "same number of elements ");
+    }
+  }
+  return collective(
+      inputs, outputs_,
+      [&](at::Tensor& /* unused */, at::Tensor& /* unused */, diclComm_t comm,
           DIPUStream& stream) {
-        RECORD_FUNCTION("DiclAllgather", std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _("DiclAllgather", stream.rawstream(),
-                                      static_cast<int>(stream.id()));
-
-        return devproxy::diclAllGather(input.data_ptr(), output.data_ptr(),
-                                       static_cast<size_t>(input.numel()),
-                                       input.scalar_type(), comm,
-                                       stream.rawstream());
-      },
-      [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {},
-      [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {
-        // Copy the flattened output tensors to the outputs.
-        for (size_t i = 0; i < outputs.size(); ++i) {
-          // warnning & todo:: copy in comm stream,
-          // record dest tensor outputs, because src tensor outputFlattened
-          // already recorded in collective.
-          copyInCommStream<true>(diclComms[i], outputs[i], outputFlattened[i],
-                                 static_cast<int>(outputs[i].size()));
-          // copyInCurrentStream(diclComms[i], outputs[i], outputFlattened[i]);
+        for (const auto i : c10::irange(num_broadcasts)) {
+          auto& outTensor = outputs_[i];
+          const auto root = static_cast<int64_t>(i);
+          // Just for the convenience of calling collective, it is necessary to
+          // record the output elements of different devices, and the work logic
+          // is correct.
+          dipu::recordStream(outTensor, stream);
+          auto& inTensor = i == this->rank_ ? inputTensor : outTensor;
+          RECORD_FUNCTION("DiclBroadcast",
+                          std::vector<c10::IValue>({inTensor}));
+          profile::RecordBlockCreator _("DiclBroadcast", stream.rawstream(),
+                                        static_cast<int>(stream.id()));
+          devproxy::diclBroadcast(
+              inTensor.data_ptr(), outTensor.data_ptr(),
+              static_cast<size_t>(inTensor.numel()), inTensor.scalar_type(),
+              static_cast<int>(root), comm, stream.rawstream());
+#if DIPU_VENDOR_NAME_ASCEND
+          if (i == this->rank_) {
+            devproxy::memCopyD2DAsync(
+                stream.rawstream(),
+                static_cast<size_t>(inTensor.numel()) *
+                    static_cast<size_t>(inTensor.element_size()),
+                i, outTensor.data_ptr(), i, inTensor.data_ptr());
+          }
+#endif
         }
       },
-      OpType::ALLGATHER);
-  return work;
+      OpType::BROADCAST);
 }
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
@@ -787,7 +842,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::scatter(
   int curRank = getRank();
   int rootRank = static_cast<int>(opts.rootRank);
   c10d::assertRootRank(raise_invalid_arg_func, rootRank, numRanks);
-  checkDeviceTensors(outputs);
+  checkDeviceTensors(outputs, true);
   c10d::assertSingleElementOutput(raise_invalid_arg_func, outputs);
   auto output = outputs.back();
   std::vector<at::Tensor> inputTensors;
@@ -838,10 +893,10 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce_scatter(
     std::vector<std::vector<at::Tensor>>& inputs,
     const ReduceScatterOptions& opts) {
   // input = output * ranks, no inplace, output = reduced(input)[rank]
-  checkDeviceTensors(outputs);
+  checkDeviceTensors(outputs, true);
   auto inputFlattened =
       flatten_for_scatter_gather(inputs, outputs, this->size_);
-  checkDeviceTensors(inputFlattened);
+  checkDeviceTensors(inputFlattened, true);
 
   auto work = collective(
       inputFlattened, outputs,
@@ -1014,7 +1069,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::alltoall(
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::send(
     std::vector<at::Tensor>& tensors, int dstRank, int tag) {
-  checkDeviceTensors(tensors);
+  checkDeviceTensors(tensors, true);
   auto p2pPair = mapPGRank2P2P(rank_, dstRank);
   return pointToPoint(
       tensors, tensors, dstRank,
@@ -1033,7 +1088,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::send(
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::recv(
     std::vector<at::Tensor>& tensors, int srcRank, int tag) {
-  checkDeviceTensors(tensors);
+  checkDeviceTensors(tensors, true);
   auto p2pPair = mapPGRank2P2P(rank_, srcRank);
   return pointToPoint(
       tensors, tensors, srcRank,
