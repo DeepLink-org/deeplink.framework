@@ -65,8 +65,23 @@ def skipOnTorchVer(torchVer: str, reason: str = ""):
     return unittest.skipIf(torch_dipu.dipu.get_dipu_torch_version() == torchVer, reason)
 
 
-def skipOn(vendor: str, reason: str):
-    return unittest.skipIf(torch_dipu.dipu.vendor_type == vendor, reason)
+@overload
+def skipOn(vendor: str, reason: str): ...
+
+@overload
+def skipOn(vendor: List[str], reason: str): ...
+
+
+def skipOn(vendor, reason: str):
+    if isinstance(vendor, str):
+        vendor_list = [vendor]
+    else:
+        vendor_list = vendor
+    return unittest.skipIf(torch_dipu.dipu.vendor_type in vendor_list, reason)
+
+# def skipOn(vendor: str, reason: str):
+#     return unittest.skipIf(torch_dipu.dipu.vendor_type == vendor, reason)
+
 
 
 def skipIfDevcieCountLessThan(number_of_devices_required):

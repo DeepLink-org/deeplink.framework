@@ -194,11 +194,17 @@ class TestFusedAdamW(TestCase):
                 ),
             )
 
-    @onlyOn("CUDA")
+    @skipOn(
+        ["MLU", "NPU", "MUXI", "GCU", "DROPLET", "SUPA", "KLX"],
+        "Currently, testing is only supported on CUDA",
+    )
     def test_adamw_fp16_(self):
         self.adamw_(torch.float16)
 
-    @onlyOn("CUDA")
+    @skipOn(
+        ["MLU", "NPU", "MUXI", "GCU", "DROPLET", "SUPA", "KLX"],
+        "Currently, testing is only supported on CUDA",
+    )
     def test_adamw_fp32_(self):
         self.adamw_(torch.float32)
 
