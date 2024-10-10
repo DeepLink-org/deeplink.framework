@@ -1,12 +1,12 @@
 #pragma once
 #include <cstdio>
 
-#include <c10/util/Exception.h>
-#ifdef USE_PCCL
-#include <pccl.h>
-#endif  // USE_PCCL
+#include "pccl.h"
 #include <tang_runtime.h>
 
+#include <c10/util/Exception.h>
+
+#include "csrc_dipu/vendor/droplet/pccl.h"
 #include <csrc_dipu/common.h>
 
 namespace dipu {
@@ -26,12 +26,7 @@ using deviceStream_t = tangStream_t;
 #define deviceDefaultStreamLiteral nullptr
 using deviceEvent_t = tangEvent_t;
 using deviceHandle_t = tangContext_t*;
-#ifdef USE_PCCL
 using diclComm_t = pcclComm_t;
 using commUniqueId = pcclUniqueId;
-#else   // USE_PCCL
-using diclComm_t = uint32_t*;
-struct commUniqueId {};
-#endif  // USE_PCCL
 
 }  // namespace dipu
