@@ -68,6 +68,7 @@ def skipOnTorchVer(torchVer: str, reason: str = ""):
 @overload
 def skipOn(vendor: str, reason: str): ...
 
+
 @overload
 def skipOn(vendor: List[str], reason: str): ...
 
@@ -77,11 +78,12 @@ def skipOn(vendor, reason: str):
         vendor_list = [vendor]
     else:
         vendor_list = vendor
-    return unittest.skipIf(torch_dipu.dipu.vendor_type in vendor_list, reason)
-
-# def skipOn(vendor: str, reason: str):
-#     return unittest.skipIf(torch_dipu.dipu.vendor_type == vendor, reason)
-
+    return unittest.skipIf(
+        torch_dipu.dipu.vendor_type in vendor_list,
+        "skip on {} because {}".format(
+            vendor[0] if len(vendor) == 1 else vendor, reason
+        ),
+    )
 
 
 def skipIfDevcieCountLessThan(number_of_devices_required):

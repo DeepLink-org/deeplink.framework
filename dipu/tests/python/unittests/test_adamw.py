@@ -196,14 +196,14 @@ class TestFusedAdamW(TestCase):
 
     @skipOn(
         ["MLU", "NPU", "MUXI", "GCU", "DROPLET", "SUPA", "KLX"],
-        "Currently, testing is only supported on CUDA",
+        "The adamw fusion operator has not yet been connected to the dipu of these chips, and the chip name can be removed from the above list after being added later",
     )
     def test_adamw_fp16_(self):
         self.adamw_(torch.float16)
 
     @skipOn(
         ["MLU", "NPU", "MUXI", "GCU", "DROPLET", "SUPA", "KLX"],
-        "Currently, testing is only supported on CUDA",
+        "The adamw fusion operator has not yet been connected to the dipu of these chips, and the chip name can be removed from the above list after being added later",
     )
     def test_adamw_fp32_(self):
         self.adamw_(torch.float32)
