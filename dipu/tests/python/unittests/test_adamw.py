@@ -1,6 +1,11 @@
 import torch
 import numpy as np
-from torch_dipu.testing._internal.common_utils import TestCase, run_tests, onlyOn, skipOn
+from torch_dipu.testing._internal.common_utils import (
+    TestCase,
+    run_tests,
+    onlyOn,
+    skipOn,
+)
 
 
 class TestFusedAdamW(TestCase):
