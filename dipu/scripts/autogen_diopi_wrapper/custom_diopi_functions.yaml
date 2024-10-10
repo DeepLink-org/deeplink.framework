@@ -1,6 +1,12 @@
 - schema: "custom_op.overloadname(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
-  autocompare: disable
-  register_op: False  # Whether generate registe code for this op, default value is True
+  # If return value is ::diopiForceFallbackToCPU, it trys to fallback to CPU.
+  #
+  # Automatically disable when 'enable_autocompare' is false or 'register_operator' is false.
+  # In most cases it generates fallback code automatically, but custom or special operator may stop it.
+  enable_fallback_to_cpu: false
+  # Generate autocompare code, 'true' by default.
+  enable_autocompare: false
+  register_operator: false  # Whether generate registe code for this op, default value is True
   print_func_call_info: False # whether generate code that prints function call information
   print_op_args: True # whether generate code that prints op args
   dummy_call_diopi: False # Does not generate code that actually calls the diopi function, defalut value is False
