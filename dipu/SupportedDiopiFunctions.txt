@@ -100,6 +100,7 @@ diopiForeachmulInpTensor
 diopiForeachmulScalar
 diopiForeachmulTensor
 diopiForeachnormScalar
+diopiFusedAdamW
 diopiGather
 diopiGe
 diopiGeInp

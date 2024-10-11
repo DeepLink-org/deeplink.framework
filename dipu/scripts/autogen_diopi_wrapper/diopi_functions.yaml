@@ -1334,6 +1334,16 @@
     ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
   interface: diopiProd(ctx, out, self_dtype_diopi, nullptr)
 
+- schema: "_fused_adamw_(Tensor(a!)[] self, Tensor(b!)[] grads, Tensor(c!)[] exp_avgs, Tensor(d!)[] exp_avg_sqs, Tensor(e!)[] max_exp_avg_sqs, Tensor[] state_steps, *, float lr, float beta1, float beta2, float weight_decay, float eps, bool amsgrad, bool maximize, Tensor? grad_scale=None, Tensor? found_inf=None) -> ()"
+  custom_code_at_the_beginning: |
+    auto diopiTensorHandles_self = dipu::diopi_helper::toDiopiTensorHandleVector(self);
+    auto diopiTensorHandles_grads = dipu::diopi_helper::toDiopiConstTensorHandleVector(grads);
+    auto diopiTensorHandles_exp_avgs = dipu::diopi_helper::toDiopiTensorHandleVector(exp_avgs);
+    auto diopiTensorHandles_exp_avg_sqs = dipu::diopi_helper::toDiopiTensorHandleVector(exp_avg_sqs);
+    auto diopiTensorHandles_max_exp_avg_sqs = dipu::diopi_helper::toDiopiTensorHandleVector(max_exp_avg_sqs);
+    auto diopiTensorHandles_state_steps = dipu::diopi_helper::toDiopiConstTensorHandleVector(state_steps);
+  interface: diopiFusedAdamW(ctx, diopiTensorHandles_self.data(), diopiTensorHandles_grads.data(), diopiTensorHandles_exp_avgs.data(), diopiTensorHandles_exp_avg_sqs.data(), diopiTensorHandles_max_exp_avg_sqs.data(), diopiTensorHandles_state_steps.data(), static_cast<int64_t>(self.size()), lr, beta1, beta2, eps, weight_decay, amsgrad, maximize)
+
 - schema: prod.int_out(Tensor self, int dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)
   custom_code_at_the_beginning: |
     const auto self_dtype = at::native::to(self, dtype);
