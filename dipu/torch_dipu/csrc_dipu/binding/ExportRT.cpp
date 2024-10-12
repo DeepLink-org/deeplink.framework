@@ -205,7 +205,8 @@ void exportEvent(py::module& m) {
            py::arg("enable_timing") = false, py::arg("blocking") = false,
            py::arg("interprocess") = false)
       .def("record", py::overload_cast<>(&DIPUEvent::record), "record event")
-      .def("record", py::overload_cast<const DIPUStream&>(&DIPUEvent::record),
+      .def("record", py::overload_cast<const DIPUStream&, bool>(&DIPUEvent::record),
+           py::arg("stream"), py::arg("use_pool") = true,
            "record event on stream")
       .def("elapsed_time", &dipu::DIPUEvent::elapsed_time)
       .def("synchronize",

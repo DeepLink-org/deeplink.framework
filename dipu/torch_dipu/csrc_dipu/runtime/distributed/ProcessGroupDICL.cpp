@@ -139,7 +139,7 @@ class WorkStore {
     std::lock_guard<std::mutex> lock(mtx_);
     info_vec_.push_back(WorkInfo());
     size_t index = info_vec_.size() - 1;
-    info_vec_[index].startEvent_.record(stream);
+    info_vec_[index].startEvent_.record(stream, false);
     info_vec_[index].rank_ = rank;
     info_vec_[index].comm_size_ = comm_size;
 
@@ -148,12 +148,11 @@ class WorkStore {
 
   void recordEnd(const DIPUStream& stream, size_t index) {
     std::lock_guard<std::mutex> lock(mtx_);
-    info_vec_[index].endEvent_.record(stream);
+    info_vec_[index].endEvent_.record(stream, false);
   }
 
   void dump(std::string& path) {
     for (auto& wi : info_vec_) {
-      wi.startEvent_.synchronize();
       wi.endEvent_.synchronize();
       float duration = wi.startEvent_.elapsed_time(wi.endEvent_);
       std::ostringstream oss;
