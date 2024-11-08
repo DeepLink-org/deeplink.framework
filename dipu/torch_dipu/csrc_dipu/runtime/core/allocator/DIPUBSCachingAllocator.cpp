@@ -67,10 +67,12 @@ class BSCachingAllocator : public CacheAllocator {
 
   static size_t getAllocateSize(size_t nbytes) {
     nbytes = getMemoryAlignmentStrategy()->roundBytes(nbytes);
-    static bool less_fragmentation =
-        std::getenv("DIPU_BS_MORE_ADAPTABLE") == nullptr;
-    return less_fragmentation ? getAllocateSizeLessFragmentation(nbytes)
-                              : getAllocateSizeMoreAdaptable(nbytes);
+    constexpr size_t kMinBlockSize = 1 << 20;  // 1M
+    if (nbytes <= kMinBlockSize) {
+      return kMinBlockSize;
+    }
+    int clz = __builtin_clzll(nbytes - 1);
+    return (1 << (sizeof(int64_t) - clz));
   }
 
   c10::DataPtr allocate(size_t size) const override {
@@ -78,8 +80,8 @@ class BSCachingAllocator : public CacheAllocator {
                                 << size << ",allocator:" << this
                                 << ", memory-usage" << memory_allocated() << "/"
                                 << memory_reserved());
-    std::lock_guard<mutex_t> lk(mutex_);
     flush_mem_pool();
+    std::lock_guard<mutex_t> lk(mutex_);
     size_t nbytes = getAllocateSize(size);
     void* ptr = nullptr;
     auto& idel_blocks = impl->idel_blocks_[nbytes];
