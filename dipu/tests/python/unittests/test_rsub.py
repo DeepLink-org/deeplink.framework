@@ -23,8 +23,15 @@ class TestRsub(TestCase):
         self._test_rsub(torch.ones(4, 5) * 1.1, torch.ones(4, 5) * 5, alpha=4)
 
     def test_rsub_scalar(self):
-        self._test_rsub_scalar(torch.ones(4, 5), 10)
-        self._test_rsub_scalar(torch.ones(4, 5), 10, 2.5)
+        # from torch:
+        # For integral input tensors, argument alpha must not be a floating point number
+        # Boolean alpha only supported for Boolean results
+        self._test_rsub_scalar(torch.ones(4, 5), 10, alpha=1)
+        self.assertRaisesRegex(
+            RuntimeError,
+            r"For integral input tensors, argument alpha must not be a floating point number\.",
+            lambda: self._test_rsub_scalar(torch.ones(4, 5), 10, 2.5),
+        )
 
 
 if __name__ == "__main__":

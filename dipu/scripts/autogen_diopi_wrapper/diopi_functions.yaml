@@ -84,12 +84,31 @@
   custom_code_at_the_beginning: |
     return dipu_add__tensor(self, other, -alpha);
 
+- schema: sub.Scalar(Tensor self, Scalar other, Scalar alpha=1) -> Tensor
+  custom_code_at_the_beginning: |
+    at::Tensor out = UnaryOpInferrer().infer_out(self);
+  interface: diopiSubScalar(ctx, out, self, other, alpha)
+
 - schema: "sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
-  dummy_call_diopi: True
+  ins: [selfTmp]
   custom_code_at_the_beginning: |
     at::native::sub_check(self, other);
-    auto out = BinaryOpInferrer().infer_out(self, other);
-    return dipu_add_out(self, other, -alpha, out);
+
+    if (is_scalar_on_cpu(other)) {
+      at::native::alpha_check(self.scalar_type(), alpha);
+      return dipu_sub_scalar(self, other.item(), alpha);
+    }
+
+    at::Tensor selfTmp = self;
+    if (is_scalar_on_cpu(selfTmp)) {
+      selfTmp = nodispatch::empty({1}, self.options().device(other.device()));
+      dipu_fill__scalar(selfTmp, self.item());
+    }
+
+    at::native::alpha_check(selfTmp.scalar_type(), alpha);
+    at::Tensor out = BinaryOpInferrer().infer_out(selfTmp, other);
+
+  interface: diopiSub(ctx, out, selfTmp, other, alpha)
 
 - schema: "div.Scalar(Tensor self, Scalar other) -> Tensor"
   custom_code_at_the_beginning: |
@@ -1368,9 +1387,10 @@
 
 - schema: rsub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor
   custom_code_at_the_beginning: |
+    if (is_scalar_on_cpu(self)) {
+      return dipu_sub_scalar(other, self.item(), alpha);
+    }
     auto out = nodispatch::empty_like(self);
-    // NOLINTNEXTLINE(readability-suspicious-call-argument)
-    return dipu_sub_out(other, self, alpha, out);
   interface: diopiSub(ctx, out, other, self, alpha)
 
 - schema: "unique_dim(Tensor self, int dim, bool sorted=True, bool return_inverse=False, bool return_counts=False) -> (Tensor out, Tensor indices, Tensor counts)"
