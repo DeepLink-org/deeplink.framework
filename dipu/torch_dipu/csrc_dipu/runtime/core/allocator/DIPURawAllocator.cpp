@@ -50,7 +50,8 @@ c10::DataPtr DIPURawDeviceAllocator::allocate(
   if (nbytes > 0) {
     devproxy::mallocDevice(&data, nbytes);
     DIPU_DEBUG_ALLOCATOR(1, "devproxy::mallocDevice: malloc "
-                                << nbytes << " nbytes, ptr:" << data);
+                                << nbytes << "(" << (nbytes >> 20) << "MB)"
+                                << " nbytes, ptr:" << data);
   }
   return {data, data, &DIPURawDeviceAllocatorDeleter,
           c10::Device(dipu::DIPU_DEVICE_TYPE, device_index)};
