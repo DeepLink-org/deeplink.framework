@@ -20,6 +20,7 @@ class DIPU_API DIPUEvent {
   deviceEvent_t event_{nullptr};
   c10::DeviceIndex device_index_{-1};
   c10::StreamId last_recorded_stream_id_{-1};
+  bool use_pool_{true};
 
  public:
   DIPUEvent(const DIPUEvent&) = delete;
@@ -29,7 +30,8 @@ class DIPU_API DIPUEvent {
   constexpr DIPUEvent(DIPUEvent&& other) noexcept
       : event_(other.event_),
         device_index_(other.device_index_),
-        last_recorded_stream_id_(other.last_recorded_stream_id_) {
+        last_recorded_stream_id_(other.last_recorded_stream_id_),
+        use_pool_(other.use_pool_) {
     other.unsafe_reset();
   }
 
@@ -39,6 +41,7 @@ class DIPU_API DIPUEvent {
       event_ = other.event_;
       device_index_ = other.device_index_;
       last_recorded_stream_id_ = other.last_recorded_stream_id_;
+      use_pool_ = other.use_pool_;
       other.unsafe_reset();
     }
     return *this;
@@ -76,8 +79,9 @@ class DIPU_API DIPUEvent {
 
   void record() { record(getCurrentDIPUStream()); }
 
-  void record(const DIPUStream& stream) {
+  void record(const DIPUStream& stream, bool use_pool = true) {
     if (!initialized()) {
+      use_pool_ = use_pool;
       create_event(stream.device_index());
     }
 
@@ -124,14 +128,23 @@ class DIPU_API DIPUEvent {
   void create_event(c10::DeviceIndex device_index) {
     device_index_ = device_index;
     DIPUGuard guard(device_index_);
-    devproxy::createEvent(&event_);
+    if(use_pool_) {
+      devproxy::createEvent(&event_);
+    } else {
+      devapis::createEvent(&event_);
+    }
   }
 
   void release_event() {
     if (initialized()) {
       DIPUGuard guard(device_index_);
-      devproxy::destroyEvent(event_);
+      if(use_pool_) {
+        devproxy::destroyEvent(event_);
+      } else {
+        devapis::destroyEvent(event_);
+      }
       event_ = nullptr;
+      use_pool_ = true;
     }
   }
 };
