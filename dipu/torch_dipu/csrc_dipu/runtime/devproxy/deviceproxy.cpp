@@ -6,6 +6,7 @@
 
 #include <c10/util/Exception.h>
 
+#include "csrc_dipu/base/environ.hpp"
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
 #include "csrc_dipu/runtime/core/allocator/allocator_metrics.h"
 #include "csrc_dipu/runtime/device/basedef.h"
@@ -65,7 +66,8 @@ deviceId_t current_device() {
 }
 
 void setCpuAffinity(const int device) {
-  static int affinity = get_env_or_default("DIPU_CPU_AFFINITY", 0);
+  static int affinity = environ::affinityCpuAffinit();
+
   if (affinity < 0) {
     return;
   }
