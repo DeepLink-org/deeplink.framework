@@ -35,3 +35,7 @@ const auto DIPU_BACKEND_SPARSE_TYPE =
 const auto DICL_BACKEND_NAME = "dicl";
 
 }  // namespace dipu
+
+namespace dipu {
+auto inline constexpr kMaxDeviceNumber = 16;
+}
