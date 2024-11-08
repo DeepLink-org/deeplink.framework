@@ -11,7 +11,7 @@ device = utils.get_device()
 torch_dipu.dipu.set_device(device)
 models_dir = os.environ.get("STABLE_DIFFUSION_MODEL_DIR")
 assert models_dir is not None
-
+# test
 
 def get_similarity(cpu_image, dicp_image):
     cpu_rgb = list(cpu_image.getdata())
