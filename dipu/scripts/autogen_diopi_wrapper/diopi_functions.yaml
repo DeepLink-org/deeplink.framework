@@ -1850,7 +1850,7 @@
   interface: diopiMatmulBackward(ctx, grad_input, grad_other, grad_out, input, other)
 
 - schema: "matmul(Tensor self, Tensor other) -> Tensor"
-  device: [droplet]
+  device: [droplet, ascend]
   custom_code_at_the_beginning: |
     const auto shapeA = self.sizes();
     const auto shapeB = other.sizes();
@@ -1889,7 +1889,7 @@
   interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "matmul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  device: [droplet]
+  device: [droplet, ascend]
   interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "matmul_backward(Tensor grad_out, Tensor input, Tensor other, bool[2] mask) -> (Tensor grad_input, Tensor grad_other)"
