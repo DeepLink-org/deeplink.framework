@@ -1,6 +1,5 @@
 import torch
 import torch.fx
-import os
 
 from dicp.vendor.TopsGraph.conversion import AtenToTopsTransformer
 from dicp.vendor.TopsGraph.to_clast import TopsMemoryFormatTransformer
